@@ -16,6 +16,8 @@
 
 #include "FastLED.h" 
 
+#include <ESP32Encoder.h>
+
 #include <IotWebConf.h>
 #include <IotWebConfESP32HTTPUpdateServer.h>
 
@@ -23,6 +25,13 @@
 
 #define SDA 17
 #define SCL 5
+
+#define POT_1 36
+#define POT_2 39
+#define POT_3 35
+
+#define ENC_A 21
+#define ENC_B 19
 
 #define WEBCONF_RESET_PIN 32
 
@@ -48,11 +57,22 @@ TCA6424A tca;
 
 struct CRGB leds[NUM_LEDS];
 
+ESP32Encoder enc;
+
 void handleRoot();
+
+int r = 0;
+int g = 0;
+int b = 0;
+
+int encPos = 0;
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
+
+  ESP32Encoder::useInternalWeakPullResistors=UP;
+  enc.attachHalfQuad(ENC_A, ENC_B);
 
   iotWebConf.setupUpdateServer(
     [](const char* updatePath) { httpUpdater.setup(&server, updatePath); },
@@ -101,9 +121,33 @@ void loop() {
 
   //bool val = tca.readPin(TCA6424A_P00);
 
-  uint8_t thisHue = beat8(20,255);
-  fill_rainbow(leds, NUM_LEDS, thisHue, 16);
+  //uint8_t thisHue = beat8(20,255);
+  //fill_rainbow(leds, NUM_LEDS, thisHue, 16);
+
+
+  
+
+  //Encoder direction
+  int newEncPos = enc.getCount();
+  if(newEncPos > encPos) {
+    encPos--;
+  } else if (newEncPos < encPos) {
+    encPos++;
+  }
+  encPos = encPos % NUM_LEDS;
+  if(encPos < 0) {
+    encPos += NUM_LEDS;
+  }
+  enc.setCount(encPos);
+
+  FastLED.clear();
+  leds[encPos].r = map(analogRead(POT_1), 0, 4096, 0, 255);
+  leds[encPos].g = map(analogRead(POT_2), 0, 4096, 0, 255);
+  leds[encPos].b = map(analogRead(POT_3), 0, 4096, 0, 255);
   FastLED.show();
+
+
+
 }
 
 void handleRoot()
