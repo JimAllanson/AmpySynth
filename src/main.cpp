@@ -72,7 +72,7 @@ void setup() {
   delay(1000);
 
   ESP32Encoder::useInternalWeakPullResistors=UP;
-  enc.attachHalfQuad(ENC_A, ENC_B);
+  enc.attachSingleEdge(ENC_A, ENC_B);
 
   iotWebConf.setupUpdateServer(
     [](const char* updatePath) { httpUpdater.setup(&server, updatePath); },
@@ -141,9 +141,9 @@ void loop() {
   enc.setCount(encPos);
 
   FastLED.clear();
-  leds[encPos].r = map(analogRead(POT_1), 0, 4096, 0, 255);
-  leds[encPos].g = map(analogRead(POT_2), 0, 4096, 0, 255);
-  leds[encPos].b = map(analogRead(POT_3), 0, 4096, 0, 255);
+  leds[encPos].r = map(analogRead(POT_1), 0, 4096, 255, 0);
+  leds[encPos].g = map(analogRead(POT_2), 0, 4096, 255, 0);
+  leds[encPos].b = map(analogRead(POT_3), 0, 4096, 255, 0);
   FastLED.show();
 
 
