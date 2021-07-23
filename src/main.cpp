@@ -1,4 +1,5 @@
 #include "Arduino.h"
+#include "AmpySynth.h"
 
 #include "FS.h"
 #include "SD.h"
@@ -20,26 +21,6 @@
 
 #include <IotWebConf.h>
 #include <IotWebConfESP32HTTPUpdateServer.h>
-
-#define CONFIG_VERSION "2"
-
-#define SDA 17
-#define SCL 5
-
-#define POT_1 36
-#define POT_2 39
-#define POT_3 35
-
-#define ENC_A 21
-#define ENC_B 19
-
-#define WEBCONF_RESET_PIN 32
-
-
-#define LED_DATA_PIN 2
-#define COLOR_ORDER GRB
-#define LED_TYPE WS2812
-#define NUM_LEDS 16
 
 
 const char tune[] PROGMEM = "JurassicPark:d=32,o=6,b=28:p,b5,a#5,8b5,16p,b5,a#5,8b5,16p,b5,a#5,16b.5,c#,16c#.,e,8e,16p,d#,b5,16c#.,a#5,16f#5,d#,b5,8c#,16p,f#,b5,16e.,d#,16d#.,c#,8c#.,1p";
@@ -66,6 +47,11 @@ int g = 0;
 int b = 0;
 
 int encPos = 0;
+
+bool ledMode = false;
+
+unsigned long lastEncoderButtonDebounceTime = 0;
+unsigned long debounceDelay = 500; 
 
 void setup() {
   Serial.begin(115200);
@@ -119,15 +105,7 @@ void loop() {
     }
   }
 
-  //bool val = tca.readPin(TCA6424A_P00);
-
-  //uint8_t thisHue = beat8(20,255);
-  //fill_rainbow(leds, NUM_LEDS, thisHue, 16);
-
-
-  
-
-  //Encoder direction
+  //Handle encoder direction
   int newEncPos = enc.getCount();
   if(newEncPos > encPos) {
     encPos--;
@@ -140,14 +118,24 @@ void loop() {
   }
   enc.setCount(encPos);
 
-  FastLED.clear();
-  leds[encPos].r = map(analogRead(POT_1), 0, 4096, 255, 0);
-  leds[encPos].g = map(analogRead(POT_2), 0, 4096, 255, 0);
-  leds[encPos].b = map(analogRead(POT_3), 0, 4096, 255, 0);
+  //Handle encoder button
+  if(digitalRead(ENC_BTN) == LOW && (millis() - lastEncoderButtonDebounceTime) > debounceDelay) {
+    lastEncoderButtonDebounceTime = millis();
+    ledMode = !ledMode;
+  }
+
+  if(ledMode) {
+    FastLED.clear();
+    leds[encPos].r = map(analogRead(POT_1), 0, 4096, 255, 0);
+    leds[encPos].g = map(analogRead(POT_2), 0, 4096, 255, 0);
+    leds[encPos].b = map(analogRead(POT_3), 0, 4096, 255, 0);
+  } else {
+    int8_t thisHue = beat8(20,255);
+    fill_rainbow(leds, NUM_LEDS, thisHue, 16);
+  }
+
+  
   FastLED.show();
-
-
-
 }
 
 void handleRoot()
