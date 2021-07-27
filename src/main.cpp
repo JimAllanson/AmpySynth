@@ -109,6 +109,8 @@ void setup() {
 void updateControl(){
   int maxGain = map(analogRead(POT_1), 0, 4096, 128, 0);
   vibrato = map(analogRead(POT_2), 0, 4096, 255, 0);
+  float lfoFreq = map(analogRead(POT_3), 0, 4096, 255, 0) / 10.0;
+  aVibrato.setFreq(lfoFreq);
 
   int newGain = 0;
   for(int b = 0; b < 3; b++) {
