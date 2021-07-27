@@ -66,6 +66,9 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
+  pinMode(KEY_B0, INPUT);
+  pinMode(KEY_C3, INPUT);
+
   //Init encoder
   ESP32Encoder::useInternalWeakPullResistors=UP;
   enc.attachSingleEdge(ENC_A, ENC_B);
@@ -113,13 +116,22 @@ void updateControl(){
   aVibrato.setFreq(lfoFreq);
 
   int newGain = 0;
+
+  if(digitalRead(KEY_B0) == HIGH) {
+    newGain = maxGain;
+    aSin.setFreq(notes[0]);
+  }
   for(int b = 0; b < 3; b++) {
     for(int i = 0; i < 8; i++) {
       if(keyBuffer[b] & (1 << i)) {
         newGain = maxGain;
-        aSin.setFreq(notes[i + (b * 8)]);
+        aSin.setFreq(notes[i + (b * 8) + 1]);
       }
     }
+  }
+  if(digitalRead(KEY_C3) == HIGH) {
+    newGain = maxGain;
+    aSin.setFreq(notes[25]);
   }
   
   gain = newGain;
