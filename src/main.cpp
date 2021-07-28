@@ -22,8 +22,13 @@
 
 #include <MozziGuts.h>
 #include <Oscil.h> 
+#include <ADSR.h>
 #include <tables/sin2048_int8.h> 
 #include <tables/cos2048_int8.h>
+#include <mozzi_midi.h>
+
+#include "SPI.h"
+#include <TFT_eSPI.h> 
 
 DNSServer dnsServer;
 WebServer server(80);
@@ -38,10 +43,19 @@ ESP32Encoder enc;
 
 Oscil <SIN2048_NUM_CELLS, AUDIO_RATE> aSin(SIN2048_DATA);
 Oscil<COS2048_NUM_CELLS, AUDIO_RATE> aVibrato(COS2048_DATA);
-byte gain = 0;
+
+#define CONTROL_RATE 128
+ADSR <CONTROL_RATE, AUDIO_RATE> envelope;
+
+byte volume = 0;
 byte vibrato = 0;
+byte lfoFreq = 0;
+byte attack = 50;
+byte decay = 200;
+int sustain = 10000;
+byte release = 200;
 
-
+void updateEncoderPosition();
 void handleRoot();
 void audioLoop( void * pvParameters );
 void keyboardLoop( void * pvParameters );
@@ -52,7 +66,7 @@ int b = 0;
 
 int encPos = 0;
 
-bool ledMode = false;
+bool ledMode = true;
 
 unsigned long lastEncoderButtonDebounceTime = 0;
 unsigned long debounceDelay = 500; 
@@ -61,6 +75,9 @@ TaskHandle_t audioTask;
 TaskHandle_t keyboardTask;
 
 uint8_t keyBuffer[3] = {0,0,0};
+
+TFT_eSPI tft = TFT_eSPI();
+
 
 void setup() {
   Serial.begin(115200);
@@ -99,65 +116,88 @@ void setup() {
   Serial.println("Initialised TCA6424A as input");
 
   //Init mozzi (audio processing library)
-  startMozzi(64);
-  aVibrato.setFreq(15.f);
+  startMozzi(CONTROL_RATE);
+  //aVibrato.setFreq(15.f);
+  
+  envelope.setADLevels(255, 64);
+
 
   //Start a background task for audio on core 0
   xTaskCreatePinnedToCore(audioLoop, "AudioTask", 10000, NULL, 1, &audioTask, 0);
   //Start a background task for polling IO expander on core 0
   xTaskCreatePinnedToCore(keyboardLoop, "KeyboardTask", 10000, NULL, 1, &keyboardTask, 0);
+
+  //Set up LCD
+  tft.rotation = 2;
+  tft.begin();
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 1);
+  tft.setTextColor(TFT_RED, TFT_BLACK);  
+  tft.setTextSize(4);
+  tft.print("Ampy");
+  tft.setTextColor(TFT_WHITE,TFT_BLACK);  
+  tft.println("Synth!");
+  tft.drawXBitmap(0, 40, AMPY_LOGO, LOGO_WIDTH, LOGO_HEIGHT, TFT_MAGENTA, TFT_BLACK);
 }
 
 
 void updateControl(){
-  int maxGain = map(analogRead(POT_1), 0, 4096, 128, 0);
-  vibrato = map(analogRead(POT_2), 0, 4096, 255, 0);
-  float lfoFreq = map(analogRead(POT_3), 0, 4096, 255, 0) / 10.0;
+  int pot1 = analogRead(POT_1);
+  int pot2 = analogRead(POT_1);
+  int pot3 = analogRead(POT_1);
+
+  if(encPos == 0) {
+    volume = map(pot1, 0, 4096, 128, 0);
+    vibrato = map(pot2, 0, 4096, 255, 0);
+    lfoFreq = map(pot3, 0, 4096, 255, 0) / 10.0;
+  } else if(encPos == 1) {
+    attack = map(pot1, 0, 4096, 255, 0);
+    decay = map(pot2, 0, 4096, 255, 0);
+    sustain = map(pot3, 0, 4096, 10000, 0);
+  } else {
+    release = map(pot1, 0, 4096, 255, 0);
+  }
+  envelope.setTimes(attack, decay, sustain, release);
+  
+
+
   aVibrato.setFreq(lfoFreq);
 
-  int newGain = 0;
-
+  envelope.noteOff();
   if(digitalRead(KEY_B0) == HIGH) {
-    newGain = maxGain;
-    aSin.setFreq(notes[0]);
+    envelope.noteOn();
+    aSin.setFreq(mtof(59));
   }
   for(int b = 0; b < 3; b++) {
     for(int i = 0; i < 8; i++) {
       if(keyBuffer[b] & (1 << i)) {
-        newGain = maxGain;
-        aSin.setFreq(notes[i + (b * 8) + 1]);
+        envelope.noteOn();
+        aSin.setFreq(mtof(60 + i + (b * 8)));
       }
     }
   }
   if(digitalRead(KEY_C3) == HIGH) {
-    newGain = maxGain;
-    aSin.setFreq(notes[25]);
+    envelope.noteOn();
+    aSin.setFreq(mtof(84));
   }
-  
-  gain = newGain;
+
+  envelope.update();
 }
 
 
 AudioOutput_t updateAudio(){
+  
   Q15n16 vib = (Q15n16) vibrato * aVibrato.next();
-  return MonoOutput::from16Bit(aSin.phMod(vib) * gain); // 8 bits waveform * 8 bits gain makes 16 bits
+
+  int multByEnv = (int) (envelope.next() * aSin.phMod(vib))>>8;
+  return MonoOutput::from16Bit(multByEnv * volume); // 8 bits waveform * 8 bits gain makes 16 bits
 }
 
 void loop() {
   iotWebConf.doLoop();
 
   //Handle encoder direction
-  int newEncPos = enc.getCount();
-  if(newEncPos > encPos) {
-    encPos--;
-  } else if (newEncPos < encPos) {
-    encPos++;
-  }
-  encPos = encPos % NUM_LEDS;
-  if(encPos < 0) {
-    encPos += NUM_LEDS;
-  }
-  enc.setCount(encPos);
+  updateEncoderPosition();
 
   //Handle encoder button
   if(digitalRead(ENC_BTN) == LOW && (millis() - lastEncoderButtonDebounceTime) > debounceDelay) {
@@ -176,6 +216,20 @@ void loop() {
   }
 
   FastLED.show();
+}
+
+void updateEncoderPosition() {
+  int newEncPos = enc.getCount();
+  if(newEncPos > encPos) {
+    encPos--;
+  } else if (newEncPos < encPos) {
+    encPos++;
+  }
+  encPos = encPos % NUM_LEDS;
+  if(encPos < 0) {
+    encPos += NUM_LEDS;
+  }
+  enc.setCount(encPos);
 }
 
 void audioLoop( void * pvParameters ){
