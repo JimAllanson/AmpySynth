@@ -17,8 +17,6 @@
 
 #include <ESP32Encoder.h>
 
-#include <IotWebConf.h>
-#include <IotWebConfESP32HTTPUpdateServer.h>
 
 #include <MozziGuts.h>
 #include <Oscil.h> 
@@ -30,10 +28,7 @@
 #include "SPI.h"
 #include <TFT_eSPI.h> 
 
-DNSServer dnsServer;
-WebServer server(80);
-HTTPUpdateServer httpUpdater;
-IotWebConf iotWebConf("AmpySynth", &dnsServer, &server, "amplience", CONFIG_VERSION);
+#include "AmpySynthNetwork.h"
 
 TCA6424A tca;
 
@@ -56,9 +51,9 @@ int sustain = 10000;
 byte release = 200;
 
 void updateEncoderPosition();
-void handleRoot();
 void audioLoop( void * pvParameters );
 void keyboardLoop( void * pvParameters );
+
 
 int r = 0;
 int g = 0;
@@ -73,15 +68,20 @@ unsigned long debounceDelay = 500;
 
 TaskHandle_t audioTask;
 TaskHandle_t keyboardTask;
+TaskHandle_t websocketTask;
 
 uint8_t keyBuffer[3] = {0,0,0};
 
 TFT_eSPI tft = TFT_eSPI();
 
+AmpySynthNetwork network(WEBCONF_RESET_PIN);
+
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+
+  network.init();
+
 
   pinMode(KEY_B0, INPUT);
   pinMode(KEY_C3, INPUT);
@@ -89,16 +89,6 @@ void setup() {
   //Init encoder
   ESP32Encoder::useInternalWeakPullResistors=UP;
   enc.attachSingleEdge(ENC_A, ENC_B);
-
-  //Set up web config / update service
-  iotWebConf.setupUpdateServer(
-    [](const char* updatePath) { httpUpdater.setup(&server, updatePath); },
-    [](const char* userName, char* password) { httpUpdater.updateCredentials(userName, password); });
-  iotWebConf.init();
-  iotWebConf.setConfigPin(WEBCONF_RESET_PIN);
-  server.on("/", handleRoot);
-  server.on("/config", []{ iotWebConf.handleConfig(); });
-  server.onNotFound([](){ iotWebConf.handleNotFound(); });
 
   //Init addressable LEDs
   LEDS.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
@@ -122,10 +112,6 @@ void setup() {
   envelope.setADLevels(255, 64);
 
 
-  //Start a background task for audio on core 0
-  xTaskCreatePinnedToCore(audioLoop, "AudioTask", 10000, NULL, 1, &audioTask, 0);
-  //Start a background task for polling IO expander on core 0
-  xTaskCreatePinnedToCore(keyboardLoop, "KeyboardTask", 10000, NULL, 1, &keyboardTask, 0);
 
   //Set up LCD
   tft.rotation = 2;
@@ -138,10 +124,30 @@ void setup() {
   tft.setTextColor(TFT_WHITE,TFT_BLACK);  
   tft.println("Synth!");
   tft.drawXBitmap(0, 40, AMPY_LOGO, LOGO_WIDTH, LOGO_HEIGHT, TFT_MAGENTA, TFT_BLACK);
+
+
+  //Start a background task for audio on core 0
+  xTaskCreatePinnedToCore(audioLoop, "AudioTask", 10000, NULL, 1, &audioTask, 0);
+  //Start a background task for polling IO expander on core 1
+  xTaskCreatePinnedToCore(keyboardLoop, "KeyboardTask", 10000, NULL, 1, &keyboardTask, 0);
+  //Start a background task for polling websockets on core 1
+ // xTaskCreatePinnedToCore(websocketLoop, "WebsocketTask", 10000, NULL, 1, &websocketTask, 1);
+
+
+
 }
 
 
 void updateControl(){
+   //Handle encoder direction
+  updateEncoderPosition();
+
+  //Handle encoder button
+  if(digitalRead(ENC_BTN) == LOW && (millis() - lastEncoderButtonDebounceTime) > debounceDelay) {
+    lastEncoderButtonDebounceTime = millis();
+    ledMode = !ledMode;
+  }
+
   int pot1 = analogRead(POT_1);
   int pot2 = analogRead(POT_1);
   int pot3 = analogRead(POT_1);
@@ -193,17 +199,11 @@ AudioOutput_t updateAudio(){
   return MonoOutput::from16Bit(multByEnv * volume); // 8 bits waveform * 8 bits gain makes 16 bits
 }
 
+
 void loop() {
-  iotWebConf.doLoop();
+  network.loop();
 
-  //Handle encoder direction
-  updateEncoderPosition();
-
-  //Handle encoder button
-  if(digitalRead(ENC_BTN) == LOW && (millis() - lastEncoderButtonDebounceTime) > debounceDelay) {
-    lastEncoderButtonDebounceTime = millis();
-    ledMode = !ledMode;
-  }
+ 
 
   if(ledMode) {
     FastLED.clear();
@@ -230,6 +230,10 @@ void updateEncoderPosition() {
     encPos += NUM_LEDS;
   }
   enc.setCount(encPos);
+
+  char msg[255];
+  snprintf_P(msg, sizeof(msg), PSTR("encoder:%i"), encPos);
+  network.ws.broadcastTXT(msg);
 }
 
 void audioLoop( void * pvParameters ){
@@ -252,15 +256,4 @@ void keyboardLoop( void * pvParameters ){
   }
 }
 
-void handleRoot()
-{
-  if (iotWebConf.handleCaptivePortal()) {
-    return;
-  }
-  String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
-  s += "<title>AmpySynth!</title></head><body>";
-  s += "Go to <a href='config'>configure page</a> to change values.";
-  s += "</body></html>\n";
 
-  server.send(200, "text/html", s);
-}

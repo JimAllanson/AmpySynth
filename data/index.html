@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <title>AmpySynth!</title>
+
+    <script>
+      window.encoderPosition = 0;
+      const socket = new WebSocket("ws://192.168.1.138:81");
+      socket.onmessage = (event) => {
+        window.encoderPosition = event.data;
+      };
+
+      setInterval(() => {
+        document.getElementById("encoder-data").innerText =
+          window.encoderPosition;
+        console.log(window.en);
+      }, 30);
+    </script>
+  </head>
+  <body>
+    Go to <a href="config">configure page</a> to change values.
+
+    <div class="ws-data">
+      <span id="encoder-data"></span>
+    </div>
+  </body>
+</html>

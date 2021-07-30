@@ -9,7 +9,7 @@
   #define KEY_B0 2
 #endif
 
-#define CONFIG_VERSION "2"
+
 
 #define SDA 17
 #define SCL 5
