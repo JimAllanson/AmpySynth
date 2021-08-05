@@ -33,7 +33,6 @@
 #include <menuIO/chainStream.h>
 
 
-
 #include "AmpySynthNetwork.h"
 
 #include "Program.h"
@@ -41,67 +40,39 @@
 #include "programs/RGBAmpy.h"
 
 TCA6424A tca;
-
 struct CRGB leds[NUM_LEDS];
-
-
-
 ESP32Encoder enc;
+uint32_t keys;
+TFT_eSPI tft = TFT_eSPI();
+AmpySynthNetwork network(WEBCONF_RESET_PIN);
 
 
+template <typename T>
+result setProgram();
+
+Program *program = new Program();;
 
 
-void updateEncoderPosition();
 void audioLoop( void * pvParameters );
 void keyboardLoop( void * pvParameters );
 void encoderLoop( void * pvParameters );
 void navLoop( void * pvParameters );
-result setProgram0();
-result setProgram1();
-Program* getProgram();
-
-int r = 0;
-int g = 0;
-int b = 0;
-
-int encPos = 0;
-
-bool ledMode = true;
-
-unsigned long lastEncoderButtonDebounceTime = 0;
-unsigned long debounceDelay = 500; 
-
 TaskHandle_t audioTask;
 TaskHandle_t keyboardTask;
 TaskHandle_t navTask;
 TaskHandle_t encoderTask;
 
 
-uint32_t keys;
-
-TFT_eSPI tft = TFT_eSPI();
-
-AmpySynthNetwork network(WEBCONF_RESET_PIN);
-
-
+MENU(mainMenu,"AmpySynth",doNothing,noEvent,wrapStyle
+  ,OP("RGBAmpy",setProgram<RGBAmpy>,enterEvent)
+  ,OP("BasicSynth",setProgram<BasicSynth>,enterEvent)
+  ,EXIT("<Back")
+);
 
 #define GFX_WIDTH 240
 #define GFX_HEIGHT 240
 #define fontW 10
 #define fontH 24
-
-int programNum = -1;
-Program *programs[] = {
-  new BasicSynth(),
-  new RGBAmpy()
-};
-
-
-MENU(mainMenu,"Main menu",doNothing,noEvent,wrapStyle
-  ,OP("RGBAmpy",setProgram0,enterEvent)
-  ,OP("BasicSynth",setProgram1,enterEvent)
-  ,EXIT("<Back")
-);
 
 #define Black RGB565(0,0,0)
 #define Red	RGB565(255,0,0)
@@ -152,13 +123,8 @@ void setup() {
   clickEncoder.setAccelerationEnabled(true);
   clickEncoder.setDoubleClickEnabled(false);
 
-
   pinMode(KEY_B0, INPUT);
   pinMode(KEY_C3, INPUT);
-
-  //Init encoder
-  //ESP32Encoder::useInternalWeakPullResistors=UP;
-  //enc.attachSingleEdge(ENC_A, ENC_B);
 
   //Init addressable LEDs
   LEDS.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
@@ -177,74 +143,48 @@ void setup() {
 
   //Init mozzi (audio processing library)
   startMozzi(CONTROL_RATE);
-  //aVibrato.setFreq(15.f);
-  
-
-
 
   //Set up LCD
   tft.rotation = 2;
   tft.begin();
+  tft.setTextSize(2);
 
   Serial.println("Starting async tasks");
-
-
   //Start a background task for audio on core 0
   xTaskCreatePinnedToCore(audioLoop, "AudioTask", 10000, NULL, 1, &audioTask, 0);
   //Start a background task for polling IO expander on core 1
   xTaskCreatePinnedToCore(keyboardLoop, "KeyboardTask", 10000, NULL, 1, &keyboardTask, 0);
   xTaskCreatePinnedToCore(encoderLoop, "EncoderTask", 10000, NULL, 1, &encoderTask,1);
   xTaskCreatePinnedToCore(navLoop, "NavTask", 10000, NULL, 1, &navTask,1);
-  
-  Serial.println("init prog");
-  Program *program = programs[0];
-  program->setEnv(leds, &tft, &keys, [](){
-    programNum = -1;
-  });
 
   Serial.println("Finish Setup");
 }
 
-result setProgram0() {
-  programNum = 0;
+template<class T>
+result setProgram() {
+  delete program;
+  program = new T();
+  program->setEnv(leds, &tft, &keys, [](){
+    delete program;
+    program = new Program();
+  });
   return proceed;
 }
 
-result setProgram1() {
-  programNum = 1;
-  return proceed;
-}
-
+//Runs 64 times a second, put IO tasks etc here
 void updateControl(){
-
-    if(programNum >= 0) {
-      getProgram()->update();
-    } 
-  
+  program->update();
 }
 
-
+//Called very frequently, feed the audio bytes
 AudioOutput_t updateAudio(){
- if(programNum >= 0) {
-    return getProgram()->audio();
-  } else {
-    return MonoOutput::from16Bit(0);
-  }
+  return program->audio();
 }
 
-
-Program* getProgram() {
-  return programs[programNum];
-}
-
+//Runs as fast as possible, but beware of eating CPU cycles
 void loop() {
   network.loop();
-
-  if(programNum >= 0) {
-    getProgram()->loop();
-  }
-
-  
+  program->loop();
 }
 
 void audioLoop( void * pvParameters ){
