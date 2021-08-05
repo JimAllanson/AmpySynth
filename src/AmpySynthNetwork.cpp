@@ -1,10 +1,7 @@
 #include "AmpySynthNetwork.h"
 
-
 void AmpySynthNetwork::init()
 {
-
-
   if(!SPIFFS.begin(true)){
      Serial.println("An Error has occurred while mounting SPIFFS");
   }
@@ -22,7 +19,6 @@ void AmpySynthNetwork::init()
   web.on("/config", [this]{ iotWebConf.handleConfig(); });
   web.onNotFound([this](){ iotWebConf.handleNotFound(); });
 
-
   ArduinoOTA
     .onStart([]() {
       String type;
@@ -32,8 +28,6 @@ void AmpySynthNetwork::init()
         type = "filesystem";
         SPIFFS.end();
       }
-
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
       Serial.println("Start updating " + type);
     })
     .onEnd([]() {

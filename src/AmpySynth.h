@@ -1,3 +1,6 @@
+#ifndef AMPYSYNTH_H
+#define AMPYSYNTH_H
+
 #include "Arduino.h"
 
 #define LED_DATA_PIN 2
@@ -27,6 +30,10 @@
 #define COLOR_ORDER GRB
 #define LED_TYPE WS2812
 #define NUM_LEDS 16
+
+#define AMPLIENCE_PINK_R 230
+#define AMPLIENCE_PINK_G 41
+#define AMPLIENCE_PINK_B 102
 
 
 
@@ -536,3 +543,5 @@ PROGMEM const unsigned char AMPY_LOGO[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 };
+
+#endif
