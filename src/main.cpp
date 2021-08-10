@@ -199,15 +199,17 @@ void audioLoop( void * pvParameters ){
 
 void keyboardLoop( void * pvParameters ){
   for(;;){
-    keys = digitalRead(KEY_C3);
-    keys = keys << 8;
-    keys = keys | tca.readBank(2);
-    keys = keys << 8;
-    keys = keys | tca.readBank(1);
-    keys = keys << 8;
-    keys = keys | tca.readBank(0);
-    keys = keys << 1;
-    keys = keys | digitalRead(KEY_B0);
+    uint32_t newKeys;
+    newKeys = digitalRead(KEY_C3);
+    newKeys = newKeys << 8;
+    newKeys = newKeys | tca.readBank(2);
+    newKeys = newKeys << 8;
+    newKeys = newKeys | tca.readBank(1);
+    newKeys = newKeys << 8;
+    newKeys = newKeys | tca.readBank(0);
+    newKeys = newKeys << 1;
+    newKeys = newKeys | digitalRead(KEY_B0);
+    keys = newKeys;
 
     //This loop doesn't need to run too fast
     delay(10);
