@@ -7,31 +7,43 @@
 
 class Program {
     protected:
-      CRGB *leds;    
-      TFT_eSPI *tft;
-      uint32_t *keys;
-      void (* onExit)();
-      void exit() {
-          onExit();
-      }
+      void (* onExit)(int nextProgram);
     public:
+      template<typename T>
+      static Program* create() {
+          return new T();
+      }
       virtual void setup() {
       }
       virtual void loop(){
       }
       virtual void update() {
       }
-      void setEnv(CRGB *_leds, TFT_eSPI *_tft, uint32_t *_keys, void (* _onExit)()) {
-        leds = _leds;
-        tft = _tft;
-        keys = _keys;
+      virtual void encoderUp() {
+      }
+      virtual void encoderDown() {
+      }
+      virtual void encoderPress() {
+      }
+      virtual void encoderRelease() {
+      }
+      void setEnv(void (* _onExit)(int nextProgram)) {
         onExit = _onExit;
         setup();
       };
+      void exit(int nextProgram = 0) {
+          onExit(nextProgram);
+      }
       virtual AudioOutput_t audio() {
           return MonoOutput::from16Bit(0);
       };
-      
 };
+
+struct ProgramEntry { 
+  char* name;
+  Program* (* programFactory)();
+};
+
+extern ProgramEntry programs[20];
 
 #endif

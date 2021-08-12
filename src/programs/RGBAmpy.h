@@ -5,5 +5,7 @@
 
 class RGBAmpy : public Program {
     public:
+        void setup();
         void loop();
+        void encoderPress();
 };

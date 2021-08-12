@@ -14,7 +14,7 @@
     #define LOAD_GLCD 1
     #define LOAD_FONT2 1
 
-    #define SPI_FREQUENCY 27000000
+    #define SPI_FREQUENCY 80000000
 
     #define USER_SETUP_LOADED 1
 #endif

@@ -3,6 +3,8 @@
 
 #include "Arduino.h"
 
+
+
 #define LED_DATA_PIN 2
 #define KEY_B0 23
 #define KEY_C3 34
@@ -35,10 +37,12 @@
 #define AMPLIENCE_PINK_G 41
 #define AMPLIENCE_PINK_B 102
 
-
-
 #define LOGO_WIDTH  240 
 #define LOGO_HEIGHT 200
+
+
+
+
 
 // Ampy Bitmap
 PROGMEM const unsigned char AMPY_LOGO[] = {
