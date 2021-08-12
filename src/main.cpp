@@ -38,6 +38,7 @@
 #include "Program.h"
 #include "programs/BasicSynth.h"
 #include "programs/RGBAmpy.h"
+#include "programs/PlayAudioFromSDCard.h"
 
 TCA6424A tca;
 struct CRGB leds[NUM_LEDS];
@@ -66,6 +67,7 @@ TaskHandle_t encoderTask;
 MENU(mainMenu,"AmpySynth",doNothing,noEvent,wrapStyle
   ,OP("RGBAmpy",setProgram<RGBAmpy>,enterEvent)
   ,OP("BasicSynth",setProgram<BasicSynth>,enterEvent)
+  ,OP("Play Audio from SD",setProgram<PlayAudioFromSDCard>,enterEvent)
   ,EXIT("<Back")
 );
 
