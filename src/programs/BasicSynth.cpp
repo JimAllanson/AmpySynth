@@ -1,12 +1,5 @@
 #include "BasicSynth.h" 
-#include "Peripherals.h" 
 
-#include <MozziGuts.h>
-#include <Oscil.h> 
-#include <ADSR.h>
-#include <tables/sin2048_int8.h> 
-#include <tables/cos2048_int8.h>
-#include <mozzi_midi.h>
 
 int encPos = 0;
 

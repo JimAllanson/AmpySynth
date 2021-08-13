@@ -1,7 +1,8 @@
 
-#include "Program.h" 
 #include "AmpySynth.h"
 #include "FastLED.h" 
+#include "utils/Peripherals.h" 
+#include "utils/Program.h" 
 
 class RGBAmpy : public Program {
     public:

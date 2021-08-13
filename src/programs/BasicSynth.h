@@ -1,7 +1,13 @@
 
-#include "Program.h" 
 #include "AmpySynth.h"
-#include "FastLED.h" 
+#include "utils/Program.h" 
+#include "utils/Peripherals.h" 
+#include <MozziGuts.h>
+#include <Oscil.h> 
+#include <ADSR.h>
+#include <tables/sin2048_int8.h> 
+#include <tables/cos2048_int8.h>
+#include <mozzi_midi.h>
 
 class BasicSynth : public Program {
     public:

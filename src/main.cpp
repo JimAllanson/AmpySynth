@@ -17,9 +17,9 @@
 #include <TFT_eSPI.h> 
 
 #include "AmpySynth.h"
-#include "Peripherals.h"
-#include "AmpySynthNetwork.h"
-#include "Program.h"
+#include "utils/Peripherals.h"
+#include "utils/AmpySynthNetwork.h"
+#include "utils/Program.h"
 #include "programs/MainMenu.h"
 #include "programs/RGBAmpy.h"
 #include "programs/BasicSynth.h"
@@ -63,8 +63,7 @@ void setup() {
   LEDS.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(128);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 250);
-  FastLED.clear();
-  FastLED.show();
+  
 
   //Init TCA6424 IO expander
   Serial.println("Initializing I2C devices...");

@@ -3,6 +3,7 @@
 
 #include <TFT_eSPI.h> 
 #include "FastLED.h" 
+#include "Peripherals.h" 
 #include <MozziGuts.h>
 
 class Program {
@@ -29,6 +30,9 @@ class Program {
       }
       void setEnv(void (* _onExit)(int nextProgram)) {
         onExit = _onExit;
+        tft.fillScreen(TFT_BLACK);
+        FastLED.clear();
+        FastLED.show();
         setup();
       };
       void exit(int nextProgram = 0) {

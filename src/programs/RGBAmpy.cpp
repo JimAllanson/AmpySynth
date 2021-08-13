@@ -1,5 +1,4 @@
 #include "RGBAmpy.h" 
-#include "Peripherals.h" 
 
 int color;
 
